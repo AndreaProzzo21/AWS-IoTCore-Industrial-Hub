@@ -5,6 +5,7 @@
 terraform.tfvars
 .terraform.lock.hcl
 
+
 # Certificati e Chiavi (Segrete!)
 certs/
 *.pem
@@ -14,11 +15,12 @@ certs/
 __pycache__/
 *.zip
 
-# Lambda
-package/
+# Influxdb client lib
+lib/
 
 # env
 .env
 
 # Simulatore certificati sbagliati
 hacker_attack/
+
