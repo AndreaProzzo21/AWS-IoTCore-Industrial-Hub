@@ -1,4 +1,4 @@
-# 1. Le "Things" (Oggetti IoT)
+
 resource "aws_iot_thing" "factory_device" {
   for_each = toset(var.device_list)
   name     = "${var.factory_name}-${each.value}"
@@ -8,13 +8,13 @@ resource "aws_iot_thing" "factory_device" {
   }
 }
 
-# 2. I Certificati X.509
+
 resource "aws_iot_certificate" "device_cert" {
   for_each = toset(var.device_list)
   active   = true
 }
 
-# 3. Policy di Sicurezza Industriale (Isolamento per Sito)
+# Policy di Sicurezza Industriale (Isolamento per Sito)
 resource "aws_iot_policy" "site_policy" {
   name = "Policy-${var.factory_name}"
 
@@ -40,7 +40,7 @@ resource "aws_iot_policy" "site_policy" {
   })
 }
 
-# 4. Collegamenti (Policy -> Certificato -> Thing)
+# Collegamenti (Policy -> Certificato -> Thing)
 resource "aws_iot_policy_attachment" "att_policy" {
   for_each = toset(var.device_list)
   policy   = aws_iot_policy.site_policy.name
@@ -53,7 +53,7 @@ resource "aws_iot_thing_principal_attachment" "att_thing" {
   thing     = aws_iot_thing.factory_device[each.key].name
 }
 
-# 5. Salvataggio certificati organizzato per Reparto/Sito
+# Salvataggio certificati organizzato per Reparto/Sito
 resource "local_file" "cert_files" {
   for_each = toset(var.device_list)
   content  = aws_iot_certificate.device_cert[each.key].certificate_pem

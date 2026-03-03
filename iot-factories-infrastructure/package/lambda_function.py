@@ -2,6 +2,16 @@ import json
 import os
 import boto3
 import time
+import sys
+
+# --- FIX PER DIPENDENZE IN CARTELLA 'lib' ---
+# Aggiungiamo la sottocartella lib al path di ricerca di Python prima di caricare Influx
+# nella cartella ci sono le dipendedenze per utilizzare influxdb-client
+
+script_dir = os.path.dirname(__file__)
+lib_path = os.path.join(script_dir, "lib")
+sys.path.append(lib_path)
+
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 
@@ -13,22 +23,30 @@ INFLUX_BUCKET = os.environ.get('INFLUX_BUCKET', 'telemetry')
 SNS_TOPIC_ARN = os.environ.get('SNS_TOPIC_ARN')
 CONFIG_FILE = os.environ.get('CONFIG_FILE', 'thresholds.json')
 
-# Metriche che richiedono un alert se scendono SOTTO la soglia (Low Thresholds)
+# Metriche che richiedono un alert se scendono SOTTO la soglia
 LOW_THRESHOLD_METRICS = ["battery_level", "pass_rate_pct", "vacuum_pressure_kpa", "gas_pressure"]
 
 # --- INIZIALIZZAZIONE CLIENT ---
 sns_client = boto3.client('sns')
 
+# Inizializziamo Influx fuori dall'handler per riutilizzare la connessione (ottimizzazione AWS)
+influx_client = None
+write_api = None
+
 try:
-    influx_client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-    write_api = influx_client.write_api(write_options=SYNCHRONOUS)
+    if INFLUX_URL and INFLUX_TOKEN:
+        influx_client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+        write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 except Exception as e:
     print(f"❌ Errore critico inizializzazione InfluxDB: {str(e)}")
 
 def load_config():
+    # Cerchiamo il file nella root o nel path relativo corretto
     try:
-        with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'r') as f:
+                return json.load(f)
+        return {}
     except Exception as e:
         print(f"⚠️ Errore caricamento config: {str(e)}")
         return {}
@@ -44,43 +62,40 @@ def lambda_handler(event, context):
     print(f"🚀 Processing {device_id} @ {site_id}")
 
     # 1. SCRITTURA SU INFLUXDB
-    try:
-        point = Point("telemetry") \
-            .tag("site_id", site_id) \
-            .tag("device_id", device_id) \
-            .time(ts, WritePrecision.S)
+    if write_api:
+        try:
+            point = Point("telemetry") \
+                .tag("site_id", site_id) \
+                .tag("device_id", device_id) \
+                .time(ts, WritePrecision.S)
 
-        for metric, value in payload.items():
-            if isinstance(value, (int, float)):
-                point.field(metric, float(value))
+            for metric, value in payload.items():
+                if isinstance(value, (int, float)):
+                    point.field(metric, float(value))
 
-        write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
-    except Exception as e:
-        print(f"❌ Fallimento invio InfluxDB: {str(e)}")
+            write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
+        except Exception as e:
+            print(f"❌ Fallimento invio InfluxDB: {str(e)}")
+    else:
+        print("⚠️ Write API non disponibile.")
 
-    # 2. LOGICA ALERT (Differenziata tra High e Low Threshold)
+    # 2. LOGICA ALERT
     thresholds = CONFIG.get(site_id, CONFIG.get('default', {}))
     alerts = []
 
     for metric, value in payload.items():
         if metric in thresholds:
             limit = thresholds[metric]
-            
-            # Assicuriamoci che il valore sia confrontabile
             if not isinstance(value, (int, float)):
                 continue
 
             if metric in LOW_THRESHOLD_METRICS:
-                # Alert se il valore è troppo BASSO
                 if value < limit:
                     msg = f"🪫 CRITICO {device_id} ({site_id}): {metric} troppo BASSO ({value} < {limit})"
-                    print(msg)
                     alerts.append(msg)
             else:
-                # Alert standard se il valore è troppo ALTO
                 if value > limit:
                     msg = f"🔥 ALLARME {device_id} ({site_id}): {metric} troppo ALTO ({value} > {limit})"
-                    print(msg)
                     alerts.append(msg)
 
     # 3. NOTIFICA SNS
@@ -91,7 +106,7 @@ def lambda_handler(event, context):
                 Subject=f"⚠️ NOTIFICA IOT: Stato Critico {site_id}",
                 Message="\n".join(alerts)
             )
-            print(f"📧 {len(alerts)} alert inviati correttamente via SNS.")
+            print(f"📧 {len(alerts)} alert inviati correttamente.")
         except Exception as e:
             print(f"❌ Errore invio SNS: {str(e)}")
 
