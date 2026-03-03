@@ -1,0 +1,14 @@
+
+services:
+  warehouse_simulator:
+    build: .
+    container_name: simulator_${FACTORY_NAME}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}
+      - FACTORY_ID=${FACTORY_NAME}
+      - DEVICES=${DEVICE_LIST} 
+    volumes:
+      - ./certs:/app/certs:ro
