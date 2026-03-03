@@ -19,3 +19,8 @@ variable "factories" {
     }
   }
 }
+
+variable "influx_url" { type = string }
+variable "influx_token" { type = string }
+variable "influx_org" { type = string }
+variable "influx_bucket" { type = string }

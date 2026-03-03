@@ -86,11 +86,10 @@ resource "aws_lambda_function" "multiplexer" {
       CONFIG_FILE    = "thresholds.json"
       SNS_TOPIC_ARN  = aws_sns_topic.factory_alerts.arn
       
-      # InfluxDB Configuration (Endpoint esterno sulla tua EC2)
-      INFLUX_URL     = "http://3.72.7.195:8086" # <--- Inserisci IP
-      INFLUX_TOKEN   = "XCVhxS7b4LmALMP03ws36WqRFnPnsq4QzQBRm10kkwF92RZx1jaeeYKfrPWeqfqfaqS5R3dwuNudp9Ek8VKMUQ=="  # <--- Inserisci Token
-      INFLUX_ORG     = "my-factories"
-      INFLUX_BUCKET  = "telemetry"
+      INFLUX_URL     = var.influx_url
+      INFLUX_TOKEN   = var.influx_token
+      INFLUX_ORG     = var.influx_org
+      INFLUX_BUCKET  = var.influx_bucket
     }
   }
 }

@@ -1,0 +1,23 @@
+{
+  "Metal-Stamping-Unit": {
+    "pressure_bar": 192.5,
+    "oil_temp": 55.0,
+    "gas_pressure": 5.3,
+    "laser_power_kw": 4.4
+  },
+  "Assembly-Line-Alpha": {
+    "joint_temperature": 53.5,
+    "torque_nm": 17.5,
+    "vibration_index": 0.48,
+    "pass_rate_pct": 94.5
+  },
+  "Automated-Warehouse": {
+    "battery_level": 18.0,
+    "vibration": 1.15,
+    "motor_temp": 49.0,
+    "vacuum_pressure_kpa": 62.0
+  },
+  "default": {
+    "temperature": 80.0
+  }
+}
